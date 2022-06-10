@@ -1,10 +1,11 @@
 {
     "manifestVersion": 1,
     "id": "vswitch-perf-viewer",
-    "version": "1.0.0",
+    "version": "1.1.258",
     "name": "Vswitch Performance Viewer",
-    "description": "Samples of interactive charts from the Chart SDK.",
+    "description": "Widget that displays historic vswitch performance data",
     "publisher": "LucianoGonzalez",
+    "private": true,
     "targets": [
         {
             "id": "Microsoft.VisualStudio.Services"
@@ -19,16 +20,17 @@
     "demands": ["contribution/ms.vss-dashboards-web.widget-sdk-version-2", "contribution/ms.vss-web.charts-service"],
     "contributions": [
         {
-            "id": "SimplePieChart",
+            "id": "VswitchPerformanceViewer",
             "type": "ms.vss-dashboards-web.widget",
             "targets": [
-                "ms.vss-dashboards-web.widget-catalog"
+                "ms.vss-dashboards-web.widget-catalog",
+                "LucianoGonzalez.vswitch-perf-viewer.VswitchPerformanceViewer.Configuration"
             ],
             "properties": {
-                "name": "Sample Pie Chart",
-                "description": "A simple pie chart widget with no configuration and hard-coded data.",
+                "name": "Vswitch Performance Viewer",
+                "description": "Widget that displays historic vswitch performance data",
                 "catalogIconUrl": "img/CatalogIcon.png",
-                "uri": "SimplePieChart.html",
+                "uri": "dist/index.html",
                 "supportedSizes": [
                     {
                         "rowSpan": 2,
@@ -41,65 +43,23 @@
             }
         },
         {
-            "id": "StackedAreaChart",
-            "type": "ms.vss-dashboards-web.widget",
-            "targets": [
-                "ms.vss-dashboards-web.widget-catalog"
-            ],
+            "id": "VswitchPerformanceViewer.Configuration",
+            "type": "ms.vss-dashboards-web.widget-configuration",
+            "targets": [ "ms.vss-dashboards-web.widget-configuration" ],
             "properties": {
-                "name": "Sample Stacked Area Chart",
-                "description": "A stacked area chart widget with no configuration and hard-coded data.",
-                "catalogIconUrl": "img/CatalogIcon.png",
-                "uri": "StackedAreaChart.html",
-                "supportedSizes": [
-                    {
-                        "rowSpan": 2,
-                        "columnSpan": 2
-                    }
-                ],
-                "supportedScopes": [
-                    "project_team"
-                ]
-            }
-        }, 
-        {
-            "id": "PivotTable",
-            "type": "ms.vss-dashboards-web.widget",
-            "targets": [
-                "ms.vss-dashboards-web.widget-catalog"
-            ],
-            "properties": {
-                "name": "Sample Pivot Table",
-                "description": "A Pivot Table widget with no configuration and hard-coded data.",
-                "catalogIconUrl": "img/CatalogIcon.png",
-                "uri": "PivotTable.html",
-                "supportedSizes": [
-                    {
-                        "rowSpan": 2,
-                        "columnSpan": 2
-                    }
-                ],
-                "supportedScopes": [
-                    "project_team"
-                ]
+                "name": "VswitchPerformanceViewer Configuration",
+                "description": "Configures VswitchPerformanceViewer",
+                "uri": "dist/configuration.html"
             }
         }
     ],
-    "files": [
+    "files": [  
         {
-            "path": "SimplePieChart.html",
+            "path": "dist",
             "addressable": true
         },
         {
-            "path": "StackedAreaChart.html",
-            "addressable": true
-        },
-        {
-            "path": "PivotTable.html",
-            "addressable": true
-        },
-        {
-            "path": "bower_components/vss-web-extension-sdk/lib/VSS.SDK.min.js",
+            "path": "node_modules/vss-web-extension-sdk/lib/VSS.SDK.min.js",
             "addressable": true
         },
         {
@@ -108,5 +68,7 @@
         }
     ],
     "scopes": [
+        "vso.code",
+        "vso.build"
     ]
 }
