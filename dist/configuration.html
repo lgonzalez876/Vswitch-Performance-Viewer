@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+    <html xmlns="http://www.w3.org/1999/xhtml">
+        <head>                          
+            <style>
+                .container {
+                    padding-bottom: 10px;
+                }
+            </style>
+            <script src="../node_modules/vss-web-extension-sdk/lib/VSS.SDK.min.js"></script>   
+            <script type="text/javascript">
+
+                const measurementOptions = {
+                    options: ["throughput", "latency"],
+                    default: "throughput"
+                }
+
+                const metricTypeOptions = {
+                    options: ["stats", "percentiles"],
+                    default: "stats"
+                }
+
+                const metricOptions = {
+                    stats: {
+                        options: ["n", "sum", "range", "min", "mean", "max", "median", "mode",
+                                    "variance", "std dev", "std err", "kurtosis", "skewness"],
+                        default: "mean"
+                    },
+                    percentiles: {
+                        options: ["0", "1", "5", "10", "25", "30", "40", "50", "60", "70", "75", 
+                                    "80", "90", "95", "96", "97", "98", "99", "99.9", "99.99", "99.999"],
+                        default: "99"
+                    }
+                };
+
+                const pivotOptions = {
+                    latency: {
+                        pivotName: "protocol",
+                        options: ["TCP", "UDP"],
+                        default: "TCP"
+                    },
+                    throughput: {
+                        pivotName: "sessions",
+                        options: ["1", "64"],
+                        default: "64"
+                    }
+                }
+
+                const unitSettings = {
+                    throughput: "Gbps",
+                    latency: "us"
+                }
+
+                VSS.init({                        
+                    explicitNotifyLoaded: true,
+                    usePlatformStyles: true
+                });
+                
+                // VSS require imports API functions as well as common libraries like jquery
+                VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) { 
+
+                    // Populates a given dropdown with the provided options and selected value
+                    function populateDropdown($dropdown, options, selected, valueCallback) {
+                        if (valueCallback == undefined) {
+                            valueCallback = (item) => {return item};
+                        }
+
+                        $dropdown.empty();
+                        options.forEach((item) => {
+                            if (item == selected) {
+                                $dropdown.append($('<option>', {
+                                    value: valueCallback(item),
+                                    text: item,
+                                    selected: true
+                                }));
+                            }
+                            else {
+                                $dropdown.append($('<option>', {
+                                    value: valueCallback(item),
+                                    text: item,
+                                }));
+                            }
+                        });
+                    }
+
+                    // Populates all dropdowns with their default options and selections
+                    function initializeDropdowns() { 
+                        let $measurementDropdown = $("#measurement-dropdown"); 
+                        let $metricTypeDropdown = $("#metric-type-dropdown");
+                        let $metricDropdown = $("#metric-dropdown");
+                        let $pivotDropdown = $("#pivot-dropdown");
+                        let $pivotLabel = $("#pivot-label"); 
+
+                        populateDropdown($measurementDropdown, measurementOptions.options, measurementOptions.default);
+                        populateDropdown($metricTypeDropdown, metricTypeOptions.options, metricTypeOptions.default);
+                        populateDropdown($metricDropdown, metricOptions[metricTypeOptions.default].options, metricOptions[metricTypeOptions.default].default); 
+                        $pivotLabel.text(pivotOptions[measurementOptions.default]["pivotName"]);
+                        populateDropdown($pivotDropdown, pivotOptions[measurementOptions.default].options, pivotOptions[measurementOptions.default].default, (item) => {
+                                return `${item}-${pivotOptions[measurementOptions.default]["pivotName"]}`;
+                            });
+                    }
+
+                    // Populates all dropdowns based on currently selected settings 
+                    function setDropdownsFromSettings(curSettings) {
+                        let $measurementDropdown = $("#measurement-dropdown"); 
+                        let $metricTypeDropdown = $("#metric-type-dropdown");
+                        let $metricDropdown = $("#metric-dropdown");
+                        let $pivotDropdown = $("#pivot-dropdown");
+                        let $pivotLabel = $("#pivot-label");
+                        let $colorPicker = $('#color-picker');
+                        let $nRange = $('#n-range-input');
+                        let $nLabel = $('#n-label');
+
+                        populateDropdown($measurementDropdown, measurementOptions.options, curSettings.measure);
+                        populateDropdown($metricTypeDropdown, metricTypeOptions.options, curSettings.metricType);
+                        populateDropdown($metricDropdown, metricOptions[curSettings.metricType].options, curSettings.metric);
+
+                        $pivotLabel.text(pivotOptions[curSettings.measure]["pivotName"]);
+                        populateDropdown($pivotDropdown, pivotOptions[curSettings.measure].options, curSettings.pivot.split("-")[0], (item) => {
+                                return `${item}-${pivotOptions[curSettings.measure]["pivotName"]}`;
+                            });
+                        $colorPicker.val(curSettings.color);
+                        $nLabel.text(curSettings.n);
+                        $nRange.val(curSettings.n);
+                        
+                    }
+
+                    // Updates dropdowns who's options change based on another dropdown's value
+                    function updateDropdowns(updatePivot) {
+                        let $measurementDropdown = $("#measurement-dropdown"); 
+                        let $metricTypeDropdown = $("#metric-type-dropdown");
+                        let $metricDropdown = $("#metric-dropdown");
+                        let $pivotDropdown = $("#pivot-dropdown");
+                        let $pivotLabel = $("#pivot-label");
+
+                        measurement = $measurementDropdown.val();
+                        metricType = $metricTypeDropdown.val();
+
+                        populateDropdown($metricDropdown, metricOptions[metricType]["options"], metricOptions[metricType]["default"]); 
+
+                        if (updatePivot) {
+                            $pivotLabel.text(pivotOptions[measurement]["pivotName"]);
+                            populateDropdown($pivotDropdown, pivotOptions[measurement]["options"], pivotOptions[measurement]["default"], (item) => {
+                                return `${item}-${pivotOptions[measurement]["pivotName"]}`;
+                            });
+                        }
+                    }
+                    
+                    // Extracts values from all the dropdowns and packages them into a json string
+                    function packageDropdownValues() {
+                        let $measurementDropdown = $("#measurement-dropdown"); 
+                        let $metricTypeDropdown = $("#metric-type-dropdown");
+                        let $metricDropdown = $("#metric-dropdown");
+                        let $pivotDropdown = $("#pivot-dropdown");
+                        let $colorPicker = $("#color-picker");
+                        let $nRange = $('#n-range-input');
+
+                        return JSON.stringify({
+                                                measure: $measurementDropdown.val(),
+                                                metricType: $metricTypeDropdown.val(),
+                                                metric: $metricDropdown.val(),
+                                                pivot: $pivotDropdown.val(),
+                                                unit: unitSettings[$measurementDropdown.val()],
+                                                color: $colorPicker.val(),
+                                                n: Math.round($nRange.val())
+                                            });
+                    }
+
+                    // Configures an input element to notify the Perfromance Viewer widget when a value changes
+                    function setElementCallback($element, eventName, WidgetHelpers, widgetConfigurationContext, updateCallback) {
+                        if (updateCallback == undefined) {
+                            updateCallback = () => {};
+                        }
+                        $element.on(eventName, () => {
+                            updateCallback();
+                            let customSettings = {
+                                data: packageDropdownValues()
+                            };
+                            let eventName = WidgetHelpers.WidgetEvent.ConfigurationChange;
+                            let eventArgs = WidgetHelpers.WidgetEvent.Args(customSettings);
+                            widgetConfigurationContext.notify(eventName, eventArgs);
+                        });
+                    }
+
+                    
+                    VSS.register("VswitchPerformanceViewer.Configuration", function () {   
+                        VSS.resize(300,400);
+                        let $measurementDropdown = $("#measurement-dropdown"); 
+                        let $metricTypeDropdown = $("#metric-type-dropdown");
+                        let $metricDropdown = $("#metric-dropdown");
+                        let $pivotDropdown = $("#pivot-dropdown");
+                        let $colorPicker =  $('#color-picker');
+                        let $nRange = $('#n-range-input');
+                        let $nLabel = $('#n-label');
+
+                        return {
+                            load: function (widgetSettings, widgetConfigurationContext) { 
+                                initializeDropdowns();
+                                let curSettings = JSON.parse(widgetSettings.customSettings.data); 
+                                if (curSettings != null) {
+                                    setDropdownsFromSettings(curSettings);
+                                }
+
+                                setElementCallback($measurementDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => {
+                                    updateDropdowns(true);
+                                });
+                                setElementCallback($metricTypeDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => {
+                                    updateDropdowns(false);
+                                });
+                                setElementCallback($metricDropdown, 'change', WidgetHelpers, widgetConfigurationContext); 
+                                setElementCallback($pivotDropdown, 'change', WidgetHelpers, widgetConfigurationContext); 
+                                setElementCallback($colorPicker, 'change', WidgetHelpers, widgetConfigurationContext);
+                                setElementCallback($colorPicker, 'input', WidgetHelpers, widgetConfigurationContext);
+                                setElementCallback($nRange, 'change', WidgetHelpers, widgetConfigurationContext, () => {
+                                    $nLabel.text(Math.round($nRange.val()));
+                                });
+                                setElementCallback($nRange, 'input', WidgetHelpers, widgetConfigurationContext, () => {
+                                    $nLabel.text(Math.round($nRange.val()));
+                                });
+
+
+                                return WidgetHelpers.WidgetStatusHelper.Success();
+                            },
+                            onSave: function() {
+                                var customSettings = {
+                                    data: packageDropdownValues()
+                                };
+                                return WidgetHelpers.WidgetConfigurationSave.Valid(customSettings); 
+                            }
+                        }
+                    });
+                    VSS.notifyLoadSucceeded();
+                });
+            </script>           
+        </head>
+        <body>
+            <div id="config-container">
+                <div class="container">
+                    <fieldset>
+                        <div>
+                            <label class="label">Measurement: </label>
+                        </div>
+                        <select id="measurement-dropdown" style="margin-top:10px">  
+                    </fieldset>
+                </div>
+                <!--
+                    For some reason the second fieldset in this file never shows up.
+                    A dummy dropdown has been added so that the rest of the dropdowns show 
+                    up properly.  
+                -->
+                <div class="container">
+                    <fieldset>
+                        <div> 
+                            <label class="label" id="ignore-label"></label> 
+                        </div>
+                        <select id="ignore-dropdown" style="margin-top:10px"> 
+                        </select>
+                    </fieldset>
+                </div> 
+                <div class="container">
+                    <fieldset>
+                        <div> 
+                            <label class="label" id="pivot-label"></label>
+                        </div>
+                        <select id="pivot-dropdown" style="margin-top:10px"> 
+                        </select>
+                    </fieldset>
+                </div> 
+                <div class="container">
+                    <fieldset>
+                        <div>
+                            <label class="label">Metric Type: </label> 
+                        </div>
+                        <select id="metric-type-dropdown" style="margin-top:10px">  
+                        </select>
+                    </fieldset>
+                </div>
+                <div class="container">
+                    <fieldset>
+                        <div> 
+                            <label class="label">Metric: </label>
+                        </div>
+                        <select id="metric-dropdown" style="margin-top:10px"> 
+                        </select>
+                    </fieldset>
+                </div> 
+                <div class="container">
+                    <div>
+                        <label class="label">Graph color: </label>
+                    </div>
+                    <input type="color" id="color-picker" name="color-picker" value="#ff007b">
+                </div>
+                <div class="container">
+                    <div>
+                        <label class="label">Number of Datapoints: </label>
+                        <label class="label" id="n-label">5</label>
+                    </div>
+                    <input id="n-range-input" type="range" min="5" max="100" value="5">
+                </div>
+            </div>
+        </body>
+    </html>
