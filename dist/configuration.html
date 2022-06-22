@@ -82,15 +82,76 @@
                         });
                     }
 
-                    // Populates all dropdowns with their default options and selections
-                    function initializeDropdowns() { 
-                        let $measurementDropdown = $("#measurement-dropdown"); 
-                        let $metricTypeDropdown = $("#metric-type-dropdown");
-                        let $metricDropdown = $("#metric-dropdown");
-                        let $pivotDropdown = $("#pivot-dropdown");
-                        let $pivotLabel = $("#pivot-label"); 
+                    function appendDataSeriesOptions($parentElement, seriesIndex) {
+                        let $pivotDropdown = 
+                            $('<div/>', {'class': 'container'}).append(
+                                $('<fieldset/>').append(
+                                    $('<div/>').append(
+                                        $('<label/>', {'class': 'label', 'id': `pivot-label${seriesIndex}`})
+                                    )
+                                ).append(
+                                    $('<select/>', {'id':`pivot-dropdown${seriesIndex}`, 'style':'margin-top:10px'})
+                                )
+                            ); 
+                        let $metricTypeDropdown = 
+                            $('<div/>', {'class': 'container'}).append(
+                                $('<fieldset/>').append(
+                                    $('<div/>').append(
+                                        $('<label/>', {'class': 'label', 'text':'Metric Type: '})
+                                    )
+                                ).append(
+                                    $('<select/>', {'id':`metric-type-dropdown${seriesIndex}`, 'style':'margin-top:10px'})
+                                )
+                            );
+                        let $metricDropdown = 
+                            $('<div/>', {'class': 'container'}).append(
+                                $('<fieldset/>').append(
+                                    $('<div/>').append(
+                                        $('<label/>', {'class': 'label', 'text':'Metric: '})
+                                    )
+                                ).append(
+                                    $('<select/>', {'id':`metric-dropdown${seriesIndex}`, 'style':'margin-top:10px'})
+                                )
+                            );
+                        let $colorPicker = 
+                            $('<div/>', {'class': 'container'}).append(
+                                $('<div/>').append(
+                                    $('<label/>', {'class':'label', 'text':'Series Color: '})
+                                )
+                            ).append(
+                                $('<input/>', {'type':'color', 'id':`color-picker${seriesIndex}`, 'name':'color-picker', 'value':'#ff007b'})
+                            );
 
+                        $parentElement.append(
+                            $('<div/>').append(
+                                $('<h1/>', {'text': `Series ${seriesIndex + 1} Options`})
+                            ).append(
+                                $pivotDropdown
+                            ).append(
+                                $metricTypeDropdown
+                            ).append(
+                                $metricDropdown
+                            ).append(
+                                $colorPicker
+                            )
+                        );
+                    }
+
+                    function initializeDefaults() {
+                        let $measurementDropdown = $("#measurement-dropdown");
                         populateDropdown($measurementDropdown, measurementOptions.options, measurementOptions.default);
+
+                        let $numSeriesDropdown = $('#num-series-dropdown');
+                        populateDropdown($numSeriesDropdown, ['1', '2', '3', '4', '5'], '1');
+
+                        let $configContainer = $('#config-container');
+                        appendDataSeriesOptions($configContainer, 0);
+
+                        let $metricTypeDropdown = $("#metric-type-dropdown0");
+                        let $metricDropdown = $("#metric-dropdown0");
+                        let $pivotDropdown = $("#pivot-dropdown0");
+                        let $pivotLabel = $("#pivot-label0"); 
+
                         populateDropdown($metricTypeDropdown, metricTypeOptions.options, metricTypeOptions.default);
                         populateDropdown($metricDropdown, metricOptions[metricTypeOptions.default].options, metricOptions[metricTypeOptions.default].default); 
                         $pivotLabel.text(pivotOptions[measurementOptions.default]["pivotName"]);
@@ -121,12 +182,11 @@
                         $colorPicker.val(curSettings.color);
                         $nLabel.text(curSettings.n);
                         $nRange.val(curSettings.n);
-                        
                     }
 
                     // Updates dropdowns who's options change based on another dropdown's value
                     function updateDropdowns(updatePivot) {
-                        let $measurementDropdown = $("#measurement-dropdown"); 
+                        let $measurementDropdown = $("#measurement-dropdown");
                         let $metricTypeDropdown = $("#metric-type-dropdown");
                         let $metricDropdown = $("#metric-dropdown");
                         let $pivotDropdown = $("#pivot-dropdown");
@@ -147,21 +207,41 @@
                     
                     // Extracts values from all the dropdowns and packages them into a json string
                     function packageDropdownValues() {
-                        let $measurementDropdown = $("#measurement-dropdown"); 
-                        let $metricTypeDropdown = $("#metric-type-dropdown");
-                        let $metricDropdown = $("#metric-dropdown");
-                        let $pivotDropdown = $("#pivot-dropdown");
-                        let $colorPicker = $("#color-picker");
+                        let $measurementDropdown = $("#measurement-dropdown");
+                        let $numSeriesDropdown = $('#num-series-dropdown');
                         let $nRange = $('#n-range-input');
+                        
+                        let numSeries = parseInt($numSeriesDropdown.val());
+                        let seriesSettings = [];
+                        for (let i = 0; i < numSeries; i++) {
+                            let $pivotDropdown = $(`#pivot-dropdown${i}`);
+                            let $metricTypeDropdown = $(`#metric-type-dropdown${i}`);
+                            let $metricDropdown = $(`#metric-dropdown${i}`);
+                            let $colorPicker = $(`#color-picker${i}`);
+
+                            seriesSettings.push({
+                                pivot: $pivotDropdown.val(),
+                                metricType: $metricTypeDropdown.val(),
+                                metric: $metricDropdown.val(),
+                                color: $colorPicker.val()
+                            });
+                        }
+
+                        
+                        console.log(JSON.stringify({
+                                                measure: $measurementDropdown.val(),
+                                                unit: unitSettings[$measurementDropdown.val()],
+                                                n: Math.round($nRange.val()),
+                                                numSeries: numSeries,
+                                                seriesSettings: seriesSettings
+                                            }));
 
                         return JSON.stringify({
                                                 measure: $measurementDropdown.val(),
-                                                metricType: $metricTypeDropdown.val(),
-                                                metric: $metricDropdown.val(),
-                                                pivot: $pivotDropdown.val(),
                                                 unit: unitSettings[$measurementDropdown.val()],
-                                                color: $colorPicker.val(),
-                                                n: Math.round($nRange.val())
+                                                n: Math.round($nRange.val()),
+                                                numSeries: numSeries,
+                                                seriesSettings: seriesSettings
                                             });
                     }
 
@@ -183,22 +263,23 @@
 
                     
                     VSS.register("VswitchPerformanceViewer.Configuration", function () {   
-                        VSS.resize(300,400);
-                        let $measurementDropdown = $("#measurement-dropdown"); 
-                        let $metricTypeDropdown = $("#metric-type-dropdown");
-                        let $metricDropdown = $("#metric-dropdown");
-                        let $pivotDropdown = $("#pivot-dropdown");
-                        let $colorPicker =  $('#color-picker');
-                        let $nRange = $('#n-range-input');
-                        let $nLabel = $('#n-label');
-
+                        VSS.resize(300,800); 
                         return {
-                            load: function (widgetSettings, widgetConfigurationContext) { 
-                                initializeDropdowns();
+                            load: function (widgetSettings, widgetConfigurationContext) {
                                 let curSettings = JSON.parse(widgetSettings.customSettings.data); 
                                 if (curSettings != null) {
                                     setDropdownsFromSettings(curSettings);
+                                } else {
+                                    initializeDefaults();
                                 }
+
+                                let $measurementDropdown = $("#measurement-dropdown"); 
+                                let $metricTypeDropdown = $("#metric-type-dropdown");
+                                let $metricDropdown = $("#metric-dropdown");
+                                let $pivotDropdown = $("#pivot-dropdown");
+                                let $colorPicker =  $('#color-picker');
+                                let $nRange = $('#n-range-input');
+                                let $nLabel = $('#n-label');
 
                                 setElementCallback($measurementDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => {
                                     updateDropdowns(true);
@@ -234,61 +315,26 @@
         </head>
         <body>
             <div id="config-container">
-                <div class="container">
+                <div class='container'>
                     <fieldset>
                         <div>
-                            <label class="label">Measurement: </label>
+                            <label class='label'>Measurement: </label>
+                            <div>
+                                <select id='measurement-dropdown' style='margin-top:10px'>
+                                </select>
+                            </div> 
                         </div>
-                        <select id="measurement-dropdown" style="margin-top:10px">  
                     </fieldset>
                 </div>
-                <!--
-                    For some reason the second fieldset in this file never shows up.
-                    A dummy dropdown has been added so that the rest of the dropdowns show 
-                    up properly.  
-                -->
                 <div class="container">
-                    <fieldset>
-                        <div> 
-                            <label class="label" id="ignore-label"></label> 
-                        </div>
-                        <select id="ignore-dropdown" style="margin-top:10px"> 
-                        </select>
-                    </fieldset>
-                </div> 
-                <div class="container">
-                    <fieldset>
-                        <div> 
-                            <label class="label" id="pivot-label"></label>
-                        </div>
-                        <select id="pivot-dropdown" style="margin-top:10px"> 
-                        </select>
-                    </fieldset>
-                </div> 
-                <div class="container">
-                    <fieldset>
+                    <fieldset> 
                         <div>
-                            <label class="label">Metric Type: </label> 
-                        </div>
-                        <select id="metric-type-dropdown" style="margin-top:10px">  
-                        </select>
-                    </fieldset>
-                </div>
-                <div class="container">
-                    <fieldset>
-                        <div> 
-                            <label class="label">Metric: </label>
-                        </div>
-                        <select id="metric-dropdown" style="margin-top:10px"> 
+                            <label class="label">Number of Data Series: </label> 
+                        </div> 
+                        <select id="num-series-dropdown" style="margin-top:10px"> 
                         </select>
                     </fieldset>
                 </div> 
-                <div class="container">
-                    <div>
-                        <label class="label">Graph color: </label>
-                    </div>
-                    <input type="color" id="color-picker" name="color-picker" value="#ff007b">
-                </div>
                 <div class="container">
                     <div>
                         <label class="label">Number of Datapoints: </label>

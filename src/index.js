@@ -91,7 +91,6 @@ VSS.require([
                         options: {
                             onClick: (event, elements, chart ) => {
                                 console.log(elements[0].index);
-
                             },
                             plugins: {
                                 legend: {
