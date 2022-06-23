@@ -37,18 +37,42 @@ VSS.require([
             let chartData = [];
 
             downloadPipelineArtifacts(authHeader, chartData, () => {
-                let chartValues = [];
-                let chartLabels = [];
+                let formattedData = {
+                    labels: [],
+                    datasets: []
+                }; 
                 let chart = null;
 
                 function filterData(settings) {
-                    chartValues = [];
-                    chartLabels = [];
+                    console.log("CHECKPOINT A");
+                    formattedData.labels = [];
+                    formattedData.datasets = [];
+
                     let dataSlice = chartData.slice(Math.max(chartData.length - settings.n, 0));
-                    dataSlice.forEach((dataEntry) => {
-                        chartValues.push(parseFloat(dataEntry[settings.measure][settings.pivot][settings.metricType][settings.metric]));
-                        chartLabels.push(dataEntry["commit"].substring(0, hashAbbreviationLength));
-                    });
+                    console.log("CHECKPOINT B");
+                    console.log(`settings: ${JSON.stringify(settings)}`);
+
+                    for (let i = 0; i < settings.numSeries; i++) {
+                        let color = hexToRgb(settings.seriesSettings[i].color); 
+                        formattedData.datasets.push({
+                            data: [],
+                            backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
+                            borderColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
+                            label: "hello"
+                        });
+                        console.log(`CHECKPOINT C ${i}`);
+                        dataSlice.forEach((dataEntry) => {
+                            if (i == 0) {
+                                formattedData.labels.push(dataEntry["commit"].substring(0, hashAbbreviationLength));
+                            }
+                            formattedData.datasets[i].data.push(
+                                parseFloat(dataEntry[settings.measure][settings.seriesSettings[i].pivot][settings.seriesSettings[i].metricType][settings.seriesSettings[i].metric])
+                            );
+                        });
+                        console.log(`CHECKPOINT D ${i}`);
+                    }
+
+                    console.log(JSON.stringify(formattedData));
                 }
 
                 function createChart(widgetSettings) {
@@ -56,34 +80,34 @@ VSS.require([
                         chart.destroy();
                         chart = null;
                     }
-
+                    console.log("CHECKPOINT 1");
                     let settings = JSON.parse(widgetSettings.customSettings.data);
+                    console.log("CHECKPOINT 2");
                     if (settings == null) {
                         settings = {
                             "measure": "throughput",
-                            "pivot": "64-sessions",
-                            "metricType": "stats",
-                            "metric": "mean",
                             "unit": "Gbps",
-                            "color": "#ff007b",
-                            "n": 5
+                            "n": 5,
+                            "numSeries": 1,
+                            "seriesSettings": [{
+                                "pivot": "64-sessions",
+                                "metricType": "stats",
+                                "metric": "mean",
+                                "color": "#ff007b",
+                            }]
                         };
                     }
 
+                    console.log("CHECKPOINT 3");
                     filterData(settings);
-
-                    let color = hexToRgb(settings.color);
-                    let colorStr = `rgb(${color.r}, ${color.g}, ${color.b})`
+                    console.log("CHECKPOINT 4"); 
 
                     const data = {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: settings.measure,
-                            backgroundColor: colorStr,
-                            borderColor: colorStr,
-                            data: chartValues
-                        }]
+                        labels: formattedData.labels,
+                        datasets: [formattedData.datasets[0]]
                     };
+                    
+                    console.log(settings);
 
                     const config = {
                         type: 'line',
@@ -137,11 +161,11 @@ VSS.require([
                     );
 
                     let $title = $("#chart-title");
-                    let metricText = settings.metric;
-                    if (settings.metricType == "percentiles") {
+                    let metricText = settings.seriesSettings[0].metric;
+                    if (settings.seriesSettings[0].metricType == "percentiles") {
                         metricText = `p${metricText}`;
                     }
-                    $title.text(`${capitalizeFirstLetter(settings.measure)} - ${settings.pivot.replace('-', ' ')} - ${metricText}`);
+                    $title.text(`${capitalizeFirstLetter(settings.measure)} - ${settings.seriesSettings[0].pivot.replace('-', ' ')} - ${metricText}`);
                 }
 
                 VSS.register("VswitchPerformanceViewer", function () {

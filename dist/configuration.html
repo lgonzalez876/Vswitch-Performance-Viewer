@@ -57,7 +57,7 @@
                 
                 // VSS require imports API functions as well as common libraries like jquery
                 VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) { 
-
+                    let seriesOptionElements = [];
                     // Populates a given dropdown with the provided options and selected value
                     function populateDropdown($dropdown, options, selected, valueCallback) {
                         if (valueCallback == undefined) {
@@ -121,9 +121,8 @@
                             ).append(
                                 $('<input/>', {'type':'color', 'id':`color-picker${seriesIndex}`, 'name':'color-picker', 'value':'#ff007b'})
                             );
-
                         $parentElement.append(
-                            $('<div/>').append(
+                            $('<div/>', {'id':`series${seriesIndex}}-options-container`}).append(
                                 $('<h1/>', {'text': `Series ${seriesIndex + 1} Options`})
                             ).append(
                                 $pivotDropdown
@@ -135,6 +134,7 @@
                                 $colorPicker
                             )
                         );
+                        seriesOptionElements.push($parentElement);
                     }
 
                     function initializeDefaults() {
@@ -142,22 +142,24 @@
                         populateDropdown($measurementDropdown, measurementOptions.options, measurementOptions.default);
 
                         let $numSeriesDropdown = $('#num-series-dropdown');
-                        populateDropdown($numSeriesDropdown, ['1', '2', '3', '4', '5'], '1');
+                        populateDropdown($numSeriesDropdown, ['1', '2', '3', '4', '5'], '1'); 
+                    }
 
+                    function initializeSeriesDefaults(seriesIdx) {
                         let $configContainer = $('#config-container');
-                        appendDataSeriesOptions($configContainer, 0);
+                        appendDataSeriesOptions($configContainer, seriesIdx);
 
-                        let $metricTypeDropdown = $("#metric-type-dropdown0");
-                        let $metricDropdown = $("#metric-dropdown0");
-                        let $pivotDropdown = $("#pivot-dropdown0");
-                        let $pivotLabel = $("#pivot-label0"); 
+                        let $metricTypeDropdown = $(`#metric-type-dropdown${seriesIdx}`);
+                        let $metricDropdown = $(`#metric-dropdown${seriesIdx}`);
+                        let $pivotDropdown = $(`#pivot-dropdown${seriesIdx}`);
+                        let $pivotLabel = $(`#pivot-label${seriesIdx}`); 
 
                         populateDropdown($metricTypeDropdown, metricTypeOptions.options, metricTypeOptions.default);
                         populateDropdown($metricDropdown, metricOptions[metricTypeOptions.default].options, metricOptions[metricTypeOptions.default].default); 
                         $pivotLabel.text(pivotOptions[measurementOptions.default]["pivotName"]);
                         populateDropdown($pivotDropdown, pivotOptions[measurementOptions.default].options, pivotOptions[measurementOptions.default].default, (item) => {
                                 return `${item}-${pivotOptions[measurementOptions.default]["pivotName"]}`;
-                            });
+                        });
                     }
 
                     // Populates all dropdowns based on currently selected settings 
@@ -226,16 +228,6 @@
                                 color: $colorPicker.val()
                             });
                         }
-
-                        
-                        console.log(JSON.stringify({
-                                                measure: $measurementDropdown.val(),
-                                                unit: unitSettings[$measurementDropdown.val()],
-                                                n: Math.round($nRange.val()),
-                                                numSeries: numSeries,
-                                                seriesSettings: seriesSettings
-                                            }));
-
                         return JSON.stringify({
                                                 measure: $measurementDropdown.val(),
                                                 unit: unitSettings[$measurementDropdown.val()],
@@ -261,6 +253,53 @@
                         });
                     }
 
+                    function setCallbacks(WidgetHelpers, widgetConfigurationContext) {
+                        let $numSeriesDropdown = $('#num-series-dropdown');
+                        let numSeries = parseInt($numSeriesDropdown.val());
+                        setElementCallback($numSeriesDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => { 
+                            let curNumSeries = parseInt($numSeriesDropdown.val());
+                            if (seriesOptionElements.length < curNumSeries) {
+                                while (seriesOptionElements.length < curNumSeries) {
+                                    initializeSeriesDefaults(seriesOptionElements.length);
+                                }
+                            } else if (seriesOptionElements.length > curNumSeries) {
+                                while (seriesOptionElements.length > curNumSeries) {
+                                    seriesOptionElements.pop();
+                                }
+                            }
+                        });
+
+                        let $measurementDropdown = $("#measurement-dropdown"); 
+                        setElementCallback($measurementDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => {
+                            //add function to update all relevant dropdowns
+                        });
+
+                        let $nRange = $('#n-range-input');
+                        let $nLabel = $('#n-label');
+                        setElementCallback($nRange, 'change', WidgetHelpers, widgetConfigurationContext, () => {
+                            $nLabel.text(Math.round($nRange.val()));
+                        });
+                        setElementCallback($nRange, 'input', WidgetHelpers, widgetConfigurationContext, () => {
+                            $nLabel.text(Math.round($nRange.val()));
+                        });
+                        
+                        for (let i = 0; i < numSeries; i++) {
+                            let $metricTypeDropdown = $(`#metric-type-dropdown${i}`);
+                            let $metricDropdown = $(`#metric-dropdown${i}`);
+                            let $pivotDropdown = $(`#pivot-dropdown${i}`);
+                            let $colorPicker =  $(`#color-picker${i}`);
+
+                            setElementCallback($metricTypeDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => {
+                                let metricType = $metricTypeDropdown.val();
+                                populateDropdown($metricDropdown, metricOptions[metricType]["options"], metricOptions[metricType]["default"]);
+                            });
+                            setElementCallback($metricDropdown, 'change', WidgetHelpers, widgetConfigurationContext); 
+                            setElementCallback($pivotDropdown, 'change', WidgetHelpers, widgetConfigurationContext); 
+                            setElementCallback($colorPicker, 'change', WidgetHelpers, widgetConfigurationContext);
+                            setElementCallback($colorPicker, 'input', WidgetHelpers, widgetConfigurationContext);
+                        }
+                    }
+
                     
                     VSS.register("VswitchPerformanceViewer.Configuration", function () {   
                         VSS.resize(300,800); 
@@ -271,33 +310,9 @@
                                     setDropdownsFromSettings(curSettings);
                                 } else {
                                     initializeDefaults();
+                                    initializeSeriesDefaults(0);
                                 }
-
-                                let $measurementDropdown = $("#measurement-dropdown"); 
-                                let $metricTypeDropdown = $("#metric-type-dropdown");
-                                let $metricDropdown = $("#metric-dropdown");
-                                let $pivotDropdown = $("#pivot-dropdown");
-                                let $colorPicker =  $('#color-picker');
-                                let $nRange = $('#n-range-input');
-                                let $nLabel = $('#n-label');
-
-                                setElementCallback($measurementDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => {
-                                    updateDropdowns(true);
-                                });
-                                setElementCallback($metricTypeDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => {
-                                    updateDropdowns(false);
-                                });
-                                setElementCallback($metricDropdown, 'change', WidgetHelpers, widgetConfigurationContext); 
-                                setElementCallback($pivotDropdown, 'change', WidgetHelpers, widgetConfigurationContext); 
-                                setElementCallback($colorPicker, 'change', WidgetHelpers, widgetConfigurationContext);
-                                setElementCallback($colorPicker, 'input', WidgetHelpers, widgetConfigurationContext);
-                                setElementCallback($nRange, 'change', WidgetHelpers, widgetConfigurationContext, () => {
-                                    $nLabel.text(Math.round($nRange.val()));
-                                });
-                                setElementCallback($nRange, 'input', WidgetHelpers, widgetConfigurationContext, () => {
-                                    $nLabel.text(Math.round($nRange.val()));
-                                });
-
+                                setCallbacks(WidgetHelpers, widgetConfigurationContext);
 
                                 return WidgetHelpers.WidgetStatusHelper.Success();
                             },
