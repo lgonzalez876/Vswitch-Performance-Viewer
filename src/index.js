@@ -44,13 +44,10 @@ VSS.require([
                 let chart = null;
 
                 function filterData(settings) {
-                    console.log("CHECKPOINT A");
                     formattedData.labels = [];
                     formattedData.datasets = [];
 
                     let dataSlice = chartData.slice(Math.max(chartData.length - settings.n, 0));
-                    console.log("CHECKPOINT B");
-                    console.log(`settings: ${JSON.stringify(settings)}`);
 
                     for (let i = 0; i < settings.numSeries; i++) {
                         let color = hexToRgb(settings.seriesSettings[i].color); 
@@ -60,7 +57,6 @@ VSS.require([
                             borderColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
                             label: "hello"
                         });
-                        console.log(`CHECKPOINT C ${i}`);
                         dataSlice.forEach((dataEntry) => {
                             if (i == 0) {
                                 formattedData.labels.push(dataEntry["commit"].substring(0, hashAbbreviationLength));
@@ -69,10 +65,8 @@ VSS.require([
                                 parseFloat(dataEntry[settings.measure][settings.seriesSettings[i].pivot][settings.seriesSettings[i].metricType][settings.seriesSettings[i].metric])
                             );
                         });
-                        console.log(`CHECKPOINT D ${i}`);
                     }
 
-                    console.log(JSON.stringify(formattedData));
                 }
 
                 function createChart(widgetSettings) {
@@ -80,9 +74,7 @@ VSS.require([
                         chart.destroy();
                         chart = null;
                     }
-                    console.log("CHECKPOINT 1");
                     let settings = JSON.parse(widgetSettings.customSettings.data);
-                    console.log("CHECKPOINT 2");
                     if (settings == null) {
                         settings = {
                             "measure": "throughput",
@@ -98,16 +90,12 @@ VSS.require([
                         };
                     }
 
-                    console.log("CHECKPOINT 3");
                     filterData(settings);
-                    console.log("CHECKPOINT 4"); 
 
                     const data = {
                         labels: formattedData.labels,
-                        datasets: [formattedData.datasets[0]]
+                        datasets: formattedData.datasets
                     };
-                    
-                    console.log(settings);
 
                     const config = {
                         type: 'line',

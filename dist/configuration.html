@@ -9,10 +9,17 @@
             <script src="../node_modules/vss-web-extension-sdk/lib/VSS.SDK.min.js"></script>   
             <script type="text/javascript">
 
+                const DEFAULT_NUM_DATAPOINTS = 5;
+                const DEFAULT_SERIES_COLOR = '#ff007b';
+                const numSeriesOptions = {
+                    options: ['1', '2', '3', '4', '5'],
+                    default: '1'
+                };
+
                 const measurementOptions = {
                     options: ["throughput", "latency"],
                     default: "throughput"
-                }
+                };
 
                 const metricTypeOptions = {
                     options: ["stats", "percentiles"],
@@ -122,8 +129,8 @@
                                 $('<input/>', {'type':'color', 'id':`color-picker${seriesIndex}`, 'name':'color-picker', 'value':'#ff007b'})
                             );
                         $parentElement.append(
-                            $('<div/>', {'id':`series${seriesIndex}}-options-container`}).append(
-                                $('<h1/>', {'text': `Series ${seriesIndex + 1} Options`})
+                            $('<div/>', {'id':`series${seriesIndex}-options-container`}).append(
+                                $('<h3/>', {'text': `Series ${seriesIndex + 1} Options`})
                             ).append(
                                 $pivotDropdown
                             ).append(
@@ -134,18 +141,43 @@
                                 $colorPicker
                             )
                         );
-                        seriesOptionElements.push($parentElement);
+                        $seriesContainer = $(`#series${seriesIndex}-options-container`);
+                        seriesOptionElements.push($seriesContainer);
                     }
 
-                    function initializeDefaults() {
+                    function initializeFromSavedSettings(curSettings, WidgetHelpers, widgetConfigurationContext) {
+                        initializeGlobalOptions(curSettings.measure, curSettings.numSeries, curSettings.n);
+                        for (let i = 0; i < curSettings.seriesSettings.length; i++) {
+                            let series = curSettings.seriesSettings[i];
+                            initializeSeriesOptions(i, WidgetHelpers, widgetConfigurationContext, 
+                                                    curSettings.measure, series.metricType, series.metric, series.pivot.split('-')[0], series.color);
+                        }
+                    }
+
+                    function initializeGlobalOptions(measurement, numSeries, numDatapoints) {
+                        if (measurement == 'default' || measurement == undefined) {
+                            measurement = measurementOptions.default;
+                        }
+                        if (numSeries == 'default' || numSeries == undefined) {
+                            numSeries = numSeriesOptions.default;
+                        }
+                        if (numDatapoints == 'default' || numDatapoints == undefined) {
+                            numDatapoints = DEFAULT_NUM_DATAPOINTS;
+                        }
+
                         let $measurementDropdown = $("#measurement-dropdown");
-                        populateDropdown($measurementDropdown, measurementOptions.options, measurementOptions.default);
+                        populateDropdown($measurementDropdown, measurementOptions.options, measurement);
 
                         let $numSeriesDropdown = $('#num-series-dropdown');
-                        populateDropdown($numSeriesDropdown, ['1', '2', '3', '4', '5'], '1'); 
+                        populateDropdown($numSeriesDropdown, numSeriesOptions.options, numSeries); 
+
+                        let $nRange = $('#n-range-input');
+                        let $nLabel = $('#n-label'); 
+                        $nLabel.text(numDatapoints);
+                        $nRange.val(numDatapoints);
                     }
 
-                    function initializeSeriesDefaults(seriesIdx) {
+                    function initializeSeriesOptions(seriesIdx, WidgetHelpers, widgetConfigurationContext, measurement, metricType, metric, pivot, color) {
                         let $configContainer = $('#config-container');
                         appendDataSeriesOptions($configContainer, seriesIdx);
 
@@ -153,39 +185,43 @@
                         let $metricDropdown = $(`#metric-dropdown${seriesIdx}`);
                         let $pivotDropdown = $(`#pivot-dropdown${seriesIdx}`);
                         let $pivotLabel = $(`#pivot-label${seriesIdx}`); 
+                        let $colorPicker = $(`#color-picker${seriesIdx}`);
 
-                        populateDropdown($metricTypeDropdown, metricTypeOptions.options, metricTypeOptions.default);
-                        populateDropdown($metricDropdown, metricOptions[metricTypeOptions.default].options, metricOptions[metricTypeOptions.default].default); 
-                        $pivotLabel.text(pivotOptions[measurementOptions.default]["pivotName"]);
-                        populateDropdown($pivotDropdown, pivotOptions[measurementOptions.default].options, pivotOptions[measurementOptions.default].default, (item) => {
+                        if (measurement == 'default' || measurement == undefined) {
+                            measurement = measurementOptions.default;
+                        }
+                        if (metricType == 'default' || metricType == undefined) {
+                            metricType = metricTypeOptions.default;
+                        }
+                        if (metric == 'default' || metric == undefined) {
+                            metric = metricOptions[metricType].default;
+                        }
+                        if (pivot == 'default' || pivot == undefined) {
+                            pivot = pivotOptions[measurement].default;
+                        }
+                        if (color == 'default' || color == undefined) {
+                            color = DEFAULT_SERIES_COLOR;
+                        }
+
+                        populateDropdown($metricTypeDropdown, metricTypeOptions.options, metricType);
+                        populateDropdown($metricDropdown, metricOptions[metricType].options, metric); 
+                        $pivotLabel.text(pivotOptions[measurement]["pivotName"]);
+                        populateDropdown($pivotDropdown, pivotOptions[measurement].options, pivot, (item) => {
                                 return `${item}-${pivotOptions[measurementOptions.default]["pivotName"]}`;
                         });
+                        $colorPicker.val(color);
+
+                        setElementCallback($metricTypeDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => {
+                            let metricType = $metricTypeDropdown.val();
+                            populateDropdown($metricDropdown, metricOptions[metricType]["options"], metricOptions[metricType]["default"]);
+                        });
+                        setElementCallback($metricDropdown, 'change', WidgetHelpers, widgetConfigurationContext); 
+                        setElementCallback($pivotDropdown, 'change', WidgetHelpers, widgetConfigurationContext); 
+                        setElementCallback($colorPicker, 'change', WidgetHelpers, widgetConfigurationContext);
+                        setElementCallback($colorPicker, 'input', WidgetHelpers, widgetConfigurationContext);
                     }
 
-                    // Populates all dropdowns based on currently selected settings 
-                    function setDropdownsFromSettings(curSettings) {
-                        let $measurementDropdown = $("#measurement-dropdown"); 
-                        let $metricTypeDropdown = $("#metric-type-dropdown");
-                        let $metricDropdown = $("#metric-dropdown");
-                        let $pivotDropdown = $("#pivot-dropdown");
-                        let $pivotLabel = $("#pivot-label");
-                        let $colorPicker = $('#color-picker');
-                        let $nRange = $('#n-range-input');
-                        let $nLabel = $('#n-label');
-
-                        populateDropdown($measurementDropdown, measurementOptions.options, curSettings.measure);
-                        populateDropdown($metricTypeDropdown, metricTypeOptions.options, curSettings.metricType);
-                        populateDropdown($metricDropdown, metricOptions[curSettings.metricType].options, curSettings.metric);
-
-                        $pivotLabel.text(pivotOptions[curSettings.measure]["pivotName"]);
-                        populateDropdown($pivotDropdown, pivotOptions[curSettings.measure].options, curSettings.pivot.split("-")[0], (item) => {
-                                return `${item}-${pivotOptions[curSettings.measure]["pivotName"]}`;
-                            });
-                        $colorPicker.val(curSettings.color);
-                        $nLabel.text(curSettings.n);
-                        $nRange.val(curSettings.n);
-                    }
-
+                    
                     // Updates dropdowns who's options change based on another dropdown's value
                     function updateDropdowns(updatePivot) {
                         let $measurementDropdown = $("#measurement-dropdown");
@@ -253,24 +289,29 @@
                         });
                     }
 
-                    function setCallbacks(WidgetHelpers, widgetConfigurationContext) {
-                        let $numSeriesDropdown = $('#num-series-dropdown');
-                        let numSeries = parseInt($numSeriesDropdown.val());
+                    function setGlobalOptionCallbacks(WidgetHelpers, widgetConfigurationContext) {
+                        let $numSeriesDropdown = $('#num-series-dropdown'); 
                         setElementCallback($numSeriesDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => { 
                             let curNumSeries = parseInt($numSeriesDropdown.val());
                             if (seriesOptionElements.length < curNumSeries) {
                                 while (seriesOptionElements.length < curNumSeries) {
-                                    initializeSeriesDefaults(seriesOptionElements.length);
+                                    initializeSeriesOptions(seriesOptionElements.length, WidgetHelpers, widgetConfigurationContext);
                                 }
                             } else if (seriesOptionElements.length > curNumSeries) {
                                 while (seriesOptionElements.length > curNumSeries) {
-                                    seriesOptionElements.pop();
+                                    $seriesElement = seriesOptionElements.pop();
+                                    $seriesElement.remove();
                                 }
                             }
                         });
 
                         let $measurementDropdown = $("#measurement-dropdown"); 
                         setElementCallback($measurementDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => {
+                            let $configContainer = $('#config-container'); 
+                            $configContainer.empty();
+                            seriesOptionElements.empty();
+                            $numSeriesDropdown.val("1");
+                            initializeSeriesOptions(0, WidgetHelpers, widgetConfigurationContext, $measurementDropdown.val());
                             //add function to update all relevant dropdowns
                         });
 
@@ -282,22 +323,6 @@
                         setElementCallback($nRange, 'input', WidgetHelpers, widgetConfigurationContext, () => {
                             $nLabel.text(Math.round($nRange.val()));
                         });
-                        
-                        for (let i = 0; i < numSeries; i++) {
-                            let $metricTypeDropdown = $(`#metric-type-dropdown${i}`);
-                            let $metricDropdown = $(`#metric-dropdown${i}`);
-                            let $pivotDropdown = $(`#pivot-dropdown${i}`);
-                            let $colorPicker =  $(`#color-picker${i}`);
-
-                            setElementCallback($metricTypeDropdown, 'change', WidgetHelpers, widgetConfigurationContext, () => {
-                                let metricType = $metricTypeDropdown.val();
-                                populateDropdown($metricDropdown, metricOptions[metricType]["options"], metricOptions[metricType]["default"]);
-                            });
-                            setElementCallback($metricDropdown, 'change', WidgetHelpers, widgetConfigurationContext); 
-                            setElementCallback($pivotDropdown, 'change', WidgetHelpers, widgetConfigurationContext); 
-                            setElementCallback($colorPicker, 'change', WidgetHelpers, widgetConfigurationContext);
-                            setElementCallback($colorPicker, 'input', WidgetHelpers, widgetConfigurationContext);
-                        }
                     }
 
                     
@@ -307,12 +332,14 @@
                             load: function (widgetSettings, widgetConfigurationContext) {
                                 let curSettings = JSON.parse(widgetSettings.customSettings.data); 
                                 if (curSettings != null) {
-                                    setDropdownsFromSettings(curSettings);
+                                    initializeFromSavedSettings(curSettings, WidgetHelpers, widgetConfigurationContext);
+                                    setGlobalOptionCallbacks(WidgetHelpers, widgetConfigurationContext);
                                 } else {
-                                    initializeDefaults();
-                                    initializeSeriesDefaults(0);
+                                    initializeGlobalOptions();
+                                    initializeSeriesOptions(0, WidgetHelpers, widgetConfigurationContext);
+                                    setGlobalOptionCallbacks(WidgetHelpers, widgetConfigurationContext);
                                 }
-                                setCallbacks(WidgetHelpers, widgetConfigurationContext);
+                                
 
                                 return WidgetHelpers.WidgetStatusHelper.Success();
                             },
@@ -329,7 +356,7 @@
             </script>           
         </head>
         <body>
-            <div id="config-container">
+            <div>
                 <div class='container'>
                     <fieldset>
                         <div>
@@ -356,6 +383,8 @@
                         <label class="label" id="n-label">5</label>
                     </div>
                     <input id="n-range-input" type="range" min="5" max="100" value="5">
+                </div>
+                <div id='config-container'> 
                 </div>
             </div>
         </body>
