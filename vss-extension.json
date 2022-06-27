@@ -1,7 +1,7 @@
 {
     "manifestVersion": 1,
     "id": "vswitch-perf-viewer",
-    "version": "1.1.344",
+    "version": "1.2.0",
     "name": "Vswitch Performance Viewer",
     "description": "Widget that displays historic vswitch performance data",
     "publisher": "LucianoGonzalez",
