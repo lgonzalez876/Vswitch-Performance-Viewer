@@ -1,0 +1,6 @@
+Invoke-Expression 'npx webpack --config webpack.config.js'
+Invoke-Expression 'browserify .\dist\widget.bundle.js > .\dist\widget.main.js'
+Invoke-Expression 'browserify .\dist\configuration.bundle.js > .\dist\configuration.main.js'
+Remove-Item '.\dist\configuration.bundle.js'
+Remove-Item '.\dist\widget.bundle.js'
+Invoke-Expression 'npx tfx-cli extension create --rev-version'

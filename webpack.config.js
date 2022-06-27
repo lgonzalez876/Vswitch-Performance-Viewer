@@ -30,14 +30,18 @@ module.exports = {
 
   target: 'node',
   // Path to your entry point. From this file Webpack will begin its work
-  entry: './src/index.js',
+  entry: {
+    widget: './src/widget/index.js',
+    configuration: './src/configuration/index.js'
+  },
+  
 
   // Path and filename of your result bundle.
   // Webpack will bundle all JavaScript into this file
   output: {
     path: path.resolve(__dirname, 'dist'),
     publicPath: '',
-    filename: 'main.js'
+    filename: '[name].bundle.js'
   },
 
   module: {

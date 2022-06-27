@@ -48,18 +48,21 @@ VSS.require([
                     formattedData.datasets = [];
 
                     let dataSlice = chartData.slice(Math.max(chartData.length - settings.n, 0));
-
                     for (let i = 0; i < settings.numSeries; i++) {
                         let color = hexToRgb(settings.seriesSettings[i].color); 
+                        let metricText = settings.seriesSettings[i].metric;
+                        if (settings.seriesSettings[i].metricType == "percentiles") {
+                            metricText = `p${metricText}`;
+                        }
                         formattedData.datasets.push({
                             data: [],
                             backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
                             borderColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
-                            label: "hello"
+                            label: `${settings.seriesSettings[i].pivot.replace('-', ' ')} - ${metricText}`
                         });
                         dataSlice.forEach((dataEntry) => {
                             if (i == 0) {
-                                formattedData.labels.push(dataEntry["commit"].substring(0, hashAbbreviationLength));
+                                formattedData.labels.push(`Commit: ${dataEntry["commit"].substring(0, hashAbbreviationLength)}`);
                             }
                             formattedData.datasets[i].data.push(
                                 parseFloat(dataEntry[settings.measure][settings.seriesSettings[i].pivot][settings.seriesSettings[i].metricType][settings.seriesSettings[i].metric])
@@ -89,9 +92,7 @@ VSS.require([
                             }]
                         };
                     }
-
                     filterData(settings);
-
                     const data = {
                         labels: formattedData.labels,
                         datasets: formattedData.datasets
@@ -106,7 +107,7 @@ VSS.require([
                             },
                             plugins: {
                                 legend: {
-                                    display: false
+                                    display: true
                                 },
                                 tooltip: {
                                     callbacks: {
@@ -142,18 +143,13 @@ VSS.require([
                             }
                         }
                     };
-
                     chart = new Chart(
                         $('#perf-chart'),
                         config
                     );
 
                     let $title = $("#chart-title");
-                    let metricText = settings.seriesSettings[0].metric;
-                    if (settings.seriesSettings[0].metricType == "percentiles") {
-                        metricText = `p${metricText}`;
-                    }
-                    $title.text(`${capitalizeFirstLetter(settings.measure)} - ${settings.seriesSettings[0].pivot.replace('-', ' ')} - ${metricText}`);
+                    $title.text(`${capitalizeFirstLetter(settings.measure)}`);
                 }
 
                 VSS.register("VswitchPerformanceViewer", function () {

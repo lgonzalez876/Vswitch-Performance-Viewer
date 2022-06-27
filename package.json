@@ -2,12 +2,7 @@
   "name": "vswitch-performance-viewer",
   "version": "1.0.0",
   "description": "A simple extension that demonstrates how to show details for a Visual Studio Team Services resource.",
-  "scripts": {
-    "build": "tsc -p .",
-    "postbuild": "npm run package",
-    "package": "tfx extension create",
-    "clean": "rimraf ./dist && rimraf ./*.vsix"
-  },
+  "scripts": {},
   "author": "Microsoft",
   "dependencies": {
     "@types/jquery": "^2.0.34",
