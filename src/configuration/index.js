@@ -43,7 +43,7 @@ const pivotOptions = {
     }
 }
 
-const unitSettings = {
+const unitMappings = {
     throughput: "Gbps",
     latency: "us"
 }
@@ -55,8 +55,9 @@ VSS.init({
 
 // VSS require imports API functions as well as common libraries like jquery
 VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) { 
-    let seriesOptionElements = [];
-    // Populates a given dropdown with the provided options and selected value
+    let seriesInputElements = [];
+
+    // Populates a given dropdown with the a set of options and selected value
     function populateDropdown($dropdown, options, selected, valueCallback) {
         if (valueCallback == undefined) {
             valueCallback = (item) => {return item};
@@ -80,49 +81,116 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
         });
     }
 
-    function appendDataSeriesOptions(seriesIndex) {
+    // Creates a new set of data series input elements 
+    function addDataSeriesInputs(seriesIndex) {
         let $configContainer = $('#config-container');
         let $pivotDropdown = 
-            $('<div/>', {'class': 'container'}).append(
+            $('<div/>', 
+                {
+                    'class': 'container'
+                }
+            ).append(
                 $('<fieldset/>').append(
                     $('<div/>').append(
-                        $('<label/>', {'class': 'label', 'id': `pivot-label${seriesIndex}`})
+                        $('<label/>', 
+                            {
+                                'class': 'label',
+                                'id': `pivot-label${seriesIndex}`
+                            }
+                        )
                     )
                 ).append(
-                    $('<select/>', {'id':`pivot-dropdown${seriesIndex}`, 'style':'margin-top:10px'})
+                    $('<select/>', 
+                        {
+                            'id':`pivot-dropdown${seriesIndex}`,
+                            'style':'margin-top:10px'
+                        }
+                    )
                 )
-            ); 
+            );
         let $metricTypeDropdown = 
-            $('<div/>', {'class': 'container'}).append(
+            $('<div/>', 
+                {
+                    'class': 'container'
+                }
+            ).append(
                 $('<fieldset/>').append(
                     $('<div/>').append(
-                        $('<label/>', {'class': 'label', 'text':'Metric Type: '})
+                        $('<label/>', 
+                            {
+                                'class': 'label',
+                                'text':'Metric Type: '
+                            }
+                        )
                     )
                 ).append(
-                    $('<select/>', {'id':`metric-type-dropdown${seriesIndex}`, 'style':'margin-top:10px'})
+                    $('<select/>', 
+                        {
+                            'id':`metric-type-dropdown${seriesIndex}`,
+                            'style':'margin-top:10px'
+                        }
+                    )
                 )
             );
         let $metricDropdown = 
-            $('<div/>', {'class': 'container'}).append(
+            $('<div/>',
+                {
+                    'class': 'container'
+                }
+            ).append(
                 $('<fieldset/>').append(
                     $('<div/>').append(
-                        $('<label/>', {'class': 'label', 'text':'Metric: '})
+                        $('<label/>', 
+                            {
+                                'class': 'label',
+                                'text':'Metric: '
+                            }
+                        )
                     )
                 ).append(
-                    $('<select/>', {'id':`metric-dropdown${seriesIndex}`, 'style':'margin-top:10px'})
+                    $('<select/>', 
+                        {
+                            'id':`metric-dropdown${seriesIndex}`,
+                            'style':'margin-top:10px'
+                        }
+                    )
                 )
             );
         let $colorPicker = 
-            $('<div/>', {'class': 'container'}).append(
+            $('<div/>', 
+                {
+                    'class': 'container'
+                }
+            ).append(
                 $('<div/>').append(
-                    $('<label/>', {'class':'label', 'text':'Series Color: '})
+                    $('<label/>',
+                        {
+                            'class':'label',
+                            'text':'Series Color: '
+                        }
+                    )
                 )
             ).append(
-                $('<input/>', {'type':'color', 'id':`color-picker${seriesIndex}`, 'name':'color-picker', 'value':'#ff007b'})
+                $('<input/>', 
+                    {
+                        'type':'color',
+                        'id':`color-picker${seriesIndex}`,
+                        'name':'color-picker',
+                        'value':'#ff007b'
+                    }
+                )
             );
-        $configContainer.append(
-            $('<div/>', {'id':`series${seriesIndex}-options-container`}).append(
-                $('<h3/>', {'text': `Series ${seriesIndex + 1} Options`})
+        let $seriesContainer = 
+            $('<div/>',
+                {
+                    'id':`series${seriesIndex}-options-container`
+                }
+            ).append(
+                $('<h3/>', 
+                    {
+                        'text': `Series ${seriesIndex + 1} Options`
+                    }
+                )
             ).append(
                 $pivotDropdown
             ).append(
@@ -131,25 +199,28 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
                 $metricDropdown
             ).append(
                 $colorPicker
-            )
-        );
-        $seriesContainer = $(`#series${seriesIndex}-options-container`);
-        seriesOptionElements.push($seriesContainer);
+            );
+
+        $configContainer.append($seriesContainer); 
+        seriesInputElements.push($seriesContainer);
     }
 
+    // Creates all input elements with saved settings preselected
     function initializeFromSavedSettings(
         curSettings,
         WidgetHelpers,
         widgetConfigurationContext
     ) {
-        initializeGlobalOptions(
+        initializeGlobalInputs(
+            WidgetHelpers,
+            widgetConfigurationContext,
             curSettings.measure,
             curSettings.numSeries,
             curSettings.n
         );
         for (let i = 0; i < curSettings.seriesSettings.length; i++) {
             let series = curSettings.seriesSettings[i];
-            initializeSeriesOptions(
+            initializeSeriesInputs(
                 i,
                 WidgetHelpers,
                 widgetConfigurationContext,
@@ -162,7 +233,14 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
         }
     }
 
-    function initializeGlobalOptions(measurement, numSeries, numDatapoints) {
+    // Populates input elements for global options
+    function initializeGlobalInputs(
+        WidgetHelpers,
+        widgetConfigurationContext,
+        measurement,
+        numSeries,
+        numDatapoints
+    ) {
         if (measurement == 'default' || measurement == undefined) {
             measurement = measurementOptions.default;
         }
@@ -191,12 +269,17 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
         let $nLabel = $('#n-label'); 
         $nLabel.text(numDatapoints);
         $nRange.val(numDatapoints);
+
+        setGlobalInputsCallbacks(
+            WidgetHelpers,
+            widgetConfigurationContext
+        );
     }
 
-    // Creates the html input elements for data series settings, 
+    // Creates the input elements for data series settings, 
     // populates them with the appropriate options, and sets callbacks
     // for when inputs change 
-    function initializeSeriesOptions(
+    function initializeSeriesInputs(
         seriesIdx,
         WidgetHelpers,
         widgetConfigurationContext,
@@ -206,7 +289,7 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
         pivot,
         color
     ) {
-        appendDataSeriesOptions(seriesIdx);
+        addDataSeriesInputs(seriesIdx);
 
         let $metricTypeDropdown = $(`#metric-type-dropdown${seriesIdx}`);
         let $metricDropdown = $(`#metric-dropdown${seriesIdx}`);
@@ -314,14 +397,14 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
         }
         return JSON.stringify({
                 measure: $measurementDropdown.val(),
-                unit: unitSettings[$measurementDropdown.val()],
+                unit: unitMappings[$measurementDropdown.val()],
                 n: Math.round($nRange.val()),
                 numSeries: numSeries,
                 seriesSettings: seriesSettings
         });
     }
 
-    // Configures an input element to notify to (optionally) execute custom code, 
+    // Configures an input element to (optionally) execute custom code, 
     // and then notifty the Performance Viewer widget when a value changes
     function setElementCallback(
         $element, 
@@ -344,8 +427,8 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
         });
     }
 
-    // Sets callbacks for global options
-    function setGlobalOptionCallbacks(WidgetHelpers, widgetConfigurationContext) {
+    // Sets callbacks for global inputs
+    function setGlobalInputsCallbacks(WidgetHelpers, widgetConfigurationContext) {
         let $numSeriesDropdown = $('#num-series-dropdown');
         let $measurementDropdown = $("#measurement-dropdown");
 
@@ -356,19 +439,19 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
             widgetConfigurationContext,
             () => {
                 let curNumSeries = parseInt($numSeriesDropdown.val());
-                if (seriesOptionElements.length < curNumSeries) {
-                    while (seriesOptionElements.length < curNumSeries) {
-                        initializeSeriesOptions(
-                            seriesOptionElements.length,
+                if (seriesInputElements.length < curNumSeries) {
+                    while (seriesInputElements.length < curNumSeries) {
+                        initializeSeriesInputs(
+                            seriesInputElements.length,
                             WidgetHelpers,
                             widgetConfigurationContext,
                             $measurementDropdown.val()
                         );
                     }
                 }
-                else if (seriesOptionElements.length > curNumSeries) {
-                    while (seriesOptionElements.length > curNumSeries) {
-                        $seriesElement = seriesOptionElements.pop();
+                else if (seriesInputElements.length > curNumSeries) {
+                    while (seriesInputElements.length > curNumSeries) {
+                        $seriesElement = seriesInputElements.pop();
                         $seriesElement.remove();
                     }
                 }
@@ -383,9 +466,9 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
             () => {
                 let $configContainer = $('#config-container');
                 $configContainer.empty();
-                seriesOptionElements = [];
+                seriesInputElements = [];
                 $numSeriesDropdown.val("1");
-                initializeSeriesOptions(
+                initializeSeriesInputs(
                     0,
                     WidgetHelpers,
                     widgetConfigurationContext,
@@ -417,7 +500,7 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
     }
 
     VSS.register("VswitchPerformanceViewer.Configuration", function () {
-        VSS.resize(300,WIDGET_HEIGHT);
+        VSS.resize(300, WIDGET_HEIGHT);
         return {
             load: function (widgetSettings, widgetConfigurationContext) {
                 let curSettings = JSON.parse(widgetSettings.customSettings.data);
@@ -427,19 +510,15 @@ VSS.require("TFS/Dashboards/WidgetHelpers", function (WidgetHelpers) {
                         WidgetHelpers,
                         widgetConfigurationContext
                     );
-                    setGlobalOptionCallbacks(
-                        WidgetHelpers,
-                        widgetConfigurationContext
-                    );
+                    
                 }
                 else {
-                    initializeGlobalOptions();
-                    initializeSeriesOptions(
-                        0,
+                    initializeGlobalInputs(
                         WidgetHelpers,
                         widgetConfigurationContext
                     );
-                    setGlobalOptionCallbacks(
+                    initializeSeriesInputs(
+                        0,
                         WidgetHelpers,
                         widgetConfigurationContext
                     );
